@@ -2364,6 +2364,18 @@ export default function App({
     [onOpenDiff],
   );
 
+  /** Stack every working-tree change in one review, whatever the diff-view setting. */
+  const onOpenAllChanges = useCallback(() => {
+    setTabs((prev) =>
+      prev.map((tab) =>
+        tab.id === activeTabId
+          ? openChangesTab(tab, sidebarCwdRef.current)
+          : tab,
+      ),
+    );
+    setComposerFocused(false);
+  }, [activeTabId]);
+
   const onOpenCommit = useCallback(
     (commit: GitHistoryCommit) => {
       setTabs((prev) =>
@@ -5171,6 +5183,7 @@ export default function App({
         onGoBack={onRailBack}
         onGoForward={onRailForward}
         onOpenDiff={onOpenWorkingTreeDiff}
+        onOpenAllChanges={onOpenAllChanges}
         onOpenCommit={onOpenCommit}
         onShowSourceControl={onToggleChanges}
         selectedDiffPath={

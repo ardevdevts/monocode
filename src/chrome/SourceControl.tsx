@@ -10,6 +10,7 @@ type Props = {
   selectedKind?: GitFileDiffKind;
   selectedSha?: string;
   onOpenFile: (path: string, kind: GitFileDiffKind) => void;
+  onOpenAllChanges: () => void;
   onOpenCommit: (commit: GitHistoryCommit) => void;
 };
 
@@ -21,6 +22,7 @@ export function SourceControl({
   selectedKind,
   selectedSha,
   onOpenFile,
+  onOpenAllChanges,
   onOpenCommit,
 }: Props) {
   return (
@@ -33,6 +35,7 @@ export function SourceControl({
         selectedKind={selectedKind}
         selectedSha={selectedSha}
         onOpenFile={onOpenFile}
+        onOpenAllChanges={onOpenAllChanges}
         onOpenCommit={onOpenCommit}
       />
     </div>

@@ -207,6 +207,7 @@ type Props = {
   onGoBack?: () => void;
   onGoForward?: () => void;
   onOpenDiff?: (path: string, kind?: GitFileDiffKind) => void;
+  onOpenAllChanges?: () => void;
   onOpenCommit?: (commit: GitHistoryCommit) => void;
   selectedDiffPath?: string;
   selectedDiffKind?: GitFileDiffKind;
@@ -280,6 +281,7 @@ function SidebarComponent({
   onGoBack,
   onGoForward,
   onOpenDiff,
+  onOpenAllChanges,
   onOpenCommit,
   selectedDiffPath,
   selectedDiffKind,
@@ -1408,6 +1410,7 @@ function SidebarComponent({
               selectedKind={selectedDiffKind}
               selectedSha={selectedCommitSha}
               onOpenFile={onOpenDiff ?? onOpenFile}
+              onOpenAllChanges={onOpenAllChanges ?? (() => {})}
               onOpenCommit={onOpenCommit ?? (() => {})}
             />
           </div>
