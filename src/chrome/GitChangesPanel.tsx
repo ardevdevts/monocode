@@ -50,6 +50,7 @@ import {
   subscribeGitChanged,
   type GitChangedFile,
   type GitDiffIndex,
+  type GitFileDiffKind,
   type GitHistoryCommit,
   type GitPr,
 } from "../lib/fs";
@@ -81,8 +82,9 @@ type Props = {
   enabled: boolean;
   textHarness?: HarnessId;
   selectedPath?: string;
+  selectedKind?: GitFileDiffKind;
   selectedSha?: string;
-  onOpenFile: (path: string) => void;
+  onOpenFile: (path: string, kind: GitFileDiffKind) => void;
   onOpenCommit: (commit: GitHistoryCommit) => void;
 };
 
@@ -91,6 +93,7 @@ export function GitChangesPanel({
   enabled,
   textHarness,
   selectedPath,
+  selectedKind,
   selectedSha,
   onOpenFile,
   onOpenCommit,
@@ -156,6 +159,7 @@ export function GitChangesPanel({
         index={index}
         files={files}
         selected={selectedPath}
+        selectedKind={selectedKind}
         enabled={enabled}
         fill
         onOpenFile={onOpenFile}
@@ -212,6 +216,7 @@ function ChangedFiles({
   index,
   files,
   selected,
+  selectedKind,
   enabled,
   fill,
   onOpenFile,
@@ -222,9 +227,10 @@ function ChangedFiles({
   index: GitDiffIndex | null;
   files: GitChangedFile[];
   selected?: string;
+  selectedKind?: GitFileDiffKind;
   enabled: boolean;
   fill: boolean;
-  onOpenFile: (path: string) => void;
+  onOpenFile: (path: string, kind: GitFileDiffKind) => void;
   onMutated: (paths?: string[]) => void;
 }) {
   const lockOverscroll = useLockOverscroll<HTMLDivElement>();
@@ -578,7 +584,10 @@ function ChangedFiles({
                   <ChangeRow
                     key={`staged:${file.relative}`}
                     file={file}
-                    active={selected === file.relative}
+                    active={
+                      selected === file.relative &&
+                      (!selectedKind || selectedKind === "staged")
+                    }
                     busy={busy === file.relative}
                     kind="staged"
                     onOpenFile={onOpenFile}
@@ -613,7 +622,10 @@ function ChangedFiles({
                   <ChangeRow
                     key={`unstaged:${file.relative}`}
                     file={file}
-                    active={selected === file.relative}
+                    active={
+                      selected === file.relative &&
+                      (!selectedKind || selectedKind === "unstaged")
+                    }
                     busy={busy === file.relative}
                     kind="unstaged"
                     onOpenFile={onOpenFile}
@@ -901,8 +913,8 @@ function ChangeRow({
   file: GitChangedFile;
   active: boolean;
   busy: boolean;
-  kind: "staged" | "unstaged";
-  onOpenFile: (path: string) => void;
+  kind: GitFileDiffKind;
+  onOpenFile: (path: string, kind: GitFileDiffKind) => void;
   onAction: (
     file: GitChangedFile,
     action: "stage" | "unstage" | "discard",
@@ -924,7 +936,7 @@ function ChangeRow({
           type="button"
           title={file.relative}
           onClick={() => {
-            if (canOpen) onOpenFile(file.path);
+            if (canOpen) onOpenFile(file.path, kind);
           }}
           className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
         >
