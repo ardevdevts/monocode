@@ -11,6 +11,7 @@ import {
 import {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -1908,7 +1909,11 @@ function Select({
     ),
   );
   const root = useRef<HTMLDivElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const listId = useId();
   const selected = options.find((option) => option.value === value);
+  const activeId =
+    options[active] != null ? `${listId}-opt-${active}` : undefined;
 
   useEffect(() => {
     if (!open) return;
@@ -1923,6 +1928,7 @@ function Select({
   const pick = (next: string) => {
     onChange(next);
     setOpen(false);
+    trigger.current?.focus();
   };
 
   const onMenuKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -1957,6 +1963,7 @@ function Select({
     <div ref={root} className="relative max-w-52">
       <button
         type="button"
+        ref={trigger}
         aria-label={label}
         aria-expanded={open}
         aria-haspopup="listbox"
@@ -1979,9 +1986,13 @@ function Select({
           width={280}
           maxHeight={320}
           autoFocus
-          onDismiss={() => setOpen(false)}
+          onDismiss={(reason) => {
+            setOpen(false);
+            if (reason === "escape") trigger.current?.focus();
+          }}
           role="listbox"
           aria-label={label}
+          aria-activedescendant={activeId}
           tabIndex={-1}
           onKeyDown={onMenuKey}
           className="overflow-y-auto overscroll-contain p-1"
@@ -1993,7 +2004,9 @@ function Select({
               <button
                 key={option.value}
                 type="button"
+                id={`${listId}-opt-${index}`}
                 role="option"
+                tabIndex={-1}
                 aria-selected={isSelected}
                 onMouseDown={(e) => e.preventDefault()}
                 onMouseEnter={() => setActive(index)}
