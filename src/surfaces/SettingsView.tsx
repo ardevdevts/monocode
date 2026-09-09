@@ -1,6 +1,7 @@
 import {
   ArrowDownCircle,
   Check,
+  ChevronDown,
   ImagePlus,
   Loader,
   RefreshCw,
@@ -14,9 +15,11 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from "react";
 import { HarnessIcon } from "../chrome/HarnessIcon";
+import { Popover } from "../chrome/Popover";
 import { InboxProviderMark } from "../chrome/InboxProviderMark";
 import { RemoveProjectDialog } from "../chrome/RemoveProjectDialog";
 import { WindowControls } from "../chrome/WindowControls";
@@ -1897,19 +1900,125 @@ function Select({
   options: { value: string; label: string }[];
   onChange: (value: string) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(() =>
+    Math.max(
+      0,
+      options.findIndex((option) => option.value === value),
+    ),
+  );
+  const root = useRef<HTMLDivElement>(null);
+  const selected = options.find((option) => option.value === value);
+
+  useEffect(() => {
+    if (!open) return;
+    setActive(
+      Math.max(
+        0,
+        options.findIndex((option) => option.value === value),
+      ),
+    );
+  }, [open, value, options]);
+
+  const pick = (next: string) => {
+    onChange(next);
+    setOpen(false);
+  };
+
+  const onMenuKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActive((i) => Math.min(options.length - 1, i + 1));
+      return;
+    }
+    if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActive((i) => Math.max(0, i - 1));
+      return;
+    }
+    if (e.key === "Home") {
+      e.preventDefault();
+      setActive(0);
+      return;
+    }
+    if (e.key === "End") {
+      e.preventDefault();
+      setActive(options.length - 1);
+      return;
+    }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const option = options[active];
+      if (option) pick(option.value);
+    }
+  };
+
   return (
-    <select
-      aria-label={label}
-      value={value}
-      onChange={(event) => onChange(event.target.value)}
-      className="max-w-52 rounded-md border border-content/10 bg-content/5 px-2 py-1 text-[12px] text-content outline-none hover:border-content/20"
-    >
-      {options.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
+    <div ref={root} className="relative max-w-52">
+      <button
+        type="button"
+        aria-label={label}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        onClick={() => setOpen((prev) => !prev)}
+        className="flex w-full items-center justify-between gap-2 rounded-md border border-content/10 bg-content/5 px-2 py-1 text-left text-[12px] text-content outline-none hover:border-content/20"
+      >
+        <span className="min-w-0 flex-1 truncate">
+          {selected ? selected.label : value}
+        </span>
+        <ChevronDown
+          className={`size-3.5 shrink-0 text-content/50 transition-transform ${open ? "rotate-180" : ""}`}
+          strokeWidth={1.75}
+        />
+      </button>
+      {open ? (
+        <Popover
+          anchor={root}
+          side="bottom"
+          align="end"
+          width={280}
+          maxHeight={320}
+          autoFocus
+          onDismiss={() => setOpen(false)}
+          role="listbox"
+          aria-label={label}
+          tabIndex={-1}
+          onKeyDown={onMenuKey}
+          className="overflow-y-auto overscroll-contain p-1"
+        >
+          {options.map((option, index) => {
+            const isSelected = option.value === value;
+            const highlighted = index === active;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="option"
+                aria-selected={isSelected}
+                onMouseDown={(e) => e.preventDefault()}
+                onMouseEnter={() => setActive(index)}
+                onClick={() => pick(option.value)}
+                className={`flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12px] ${
+                  highlighted || isSelected
+                    ? "bg-content/10 text-content"
+                    : "text-content hover:bg-content/5"
+                }`}
+              >
+                <span className="min-w-0 flex-1 truncate">
+                  {option.label}
+                </span>
+                {isSelected ? (
+                  <Check
+                    className="size-3.5 shrink-0"
+                    strokeWidth={2.25}
+                  />
+                ) : null}
+              </button>
+            );
+          })}
+        </Popover>
+      ) : null}
+    </div>
   );
 }
 
