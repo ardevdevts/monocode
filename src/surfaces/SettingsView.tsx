@@ -1890,6 +1890,7 @@ function Toggle({
   );
 }
 
+/** Theme-aware dropdown for a Settings row: a trigger button opening a Popover listbox. Used instead of a native select, whose option popup is OS-rendered and unreadable in dark mode on Windows/Linux. */
 function Select({
   label,
   value,
