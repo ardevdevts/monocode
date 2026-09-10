@@ -168,6 +168,7 @@ export function SkillsPage({ cwd }: { cwd: string }): ReactNode {
             key={cwd}
             query={query}
             cwd={cwd}
+            monospace={false}
             error={createError}
             busy={busy}
             onCancel={() => {
@@ -211,7 +212,7 @@ export function SkillsPage({ cwd }: { cwd: string }): ReactNode {
                 >
                   <div className="flex items-center gap-2">
                     <span
-                      className="min-w-0 flex-1 truncate font-mono text-[12px] text-content"
+                      className="min-w-0 flex-1 truncate font-sans text-[12px] text-content"
                       title={skill.name}
                     >
                       {skill.name}
@@ -223,7 +224,7 @@ export function SkillsPage({ cwd }: { cwd: string }): ReactNode {
                           ? "MonoCode"
                           : "Project"}
                     </span>
-                    <span className="w-20 shrink-0 truncate text-right font-mono text-[11px] text-content/40">
+                    <span className="w-20 shrink-0 truncate text-right font-sans text-[11px] text-content/40">
                       {skill.source}
                     </span>
                     <button
@@ -249,7 +250,7 @@ export function SkillsPage({ cwd }: { cwd: string }): ReactNode {
                   ) : null}
                   <div className="mt-0.5 flex items-center gap-1">
                     <p
-                      className="min-w-0 flex-1 truncate font-mono text-[11px] text-content/35"
+                      className="min-w-0 flex-1 truncate font-sans text-[11px] text-content/35"
                       title={skill.path}
                     >
                       {skill.path}
@@ -283,8 +284,8 @@ export function SkillsPage({ cwd }: { cwd: string }): ReactNode {
       <p className="pt-3 text-[12px] text-content/40">
         Hidden skills stay on disk and are excluded from MonoCode's file-skill
         catalog. Provider-managed skills and native commands are unaffected.
-        Skills live in <span className="font-mono">.agents/skills</span> for
-        this project and <span className="font-mono">~/.agents/skills</span> for
+        Skills live in <span className="font-sans">.agents/skills</span> for
+        this project and <span className="font-sans">~/.agents/skills</span> for
         you personally; harness folders are also picked up.
       </p>
     </>

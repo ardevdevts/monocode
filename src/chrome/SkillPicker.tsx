@@ -191,6 +191,7 @@ function SkillList({
 export function CreateSkillForm({
   query,
   cwd,
+  monospace = true,
   error,
   busy,
   onCancel,
@@ -198,6 +199,7 @@ export function CreateSkillForm({
 }: {
   query: string;
   cwd: string;
+  monospace?: boolean;
   error?: string | null;
   busy?: boolean;
   onCancel: () => void;
@@ -242,12 +244,13 @@ export function CreateSkillForm({
           e.preventDefault();
           onCancel();
         }}
-        className="mb-2 w-full rounded-md bg-content/10 px-2 py-1.5 font-mono text-[13px] text-content outline-none placeholder:text-content/40"
+        className={`mb-2 w-full rounded-md bg-content/10 px-2 py-1.5 text-[13px] text-content outline-none placeholder:text-content/40 ${monospace ? "font-mono" : "font-sans"}`}
       />
       <div className="mb-2 flex gap-1">
         <ScopeButton
           label="Project"
           hint=".agents/skills"
+          monospace={monospace}
           selected={scope === "project"}
           disabled={!project || busy}
           onClick={() => setScope("project")}
@@ -255,6 +258,7 @@ export function CreateSkillForm({
         <ScopeButton
           label="Personal"
           hint="~/.agents/skills"
+          monospace={monospace}
           selected={scope === "user"}
           disabled={busy}
           onClick={() => setScope("user")}
@@ -291,12 +295,14 @@ export function CreateSkillForm({
 function ScopeButton({
   label,
   hint,
+  monospace,
   selected,
   disabled,
   onClick,
 }: {
   label: string;
   hint: string;
+  monospace: boolean;
   selected: boolean;
   disabled?: boolean;
   onClick: () => void;
@@ -311,7 +317,9 @@ function ScopeButton({
       } disabled:opacity-40`}
     >
       <span className="text-[12px]">{label}</span>
-      <span className="truncate font-mono text-[10px] text-content/40">
+      <span
+        className={`truncate text-[10px] text-content/40 ${monospace ? "font-mono" : "font-sans"}`}
+      >
         {hint}
       </span>
     </button>
