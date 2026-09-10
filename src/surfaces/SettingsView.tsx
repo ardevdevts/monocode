@@ -1911,6 +1911,7 @@ function Select({
   );
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
+  const activeOption = useRef<HTMLButtonElement>(null);
   const listId = useId();
   const selected = options.find((option) => option.value === value);
   const activeId =
@@ -1925,6 +1926,11 @@ function Select({
       ),
     );
   }, [open, value, options]);
+
+  useEffect(() => {
+    if (!open) return;
+    activeOption.current?.scrollIntoView({ block: "nearest" });
+  }, [active, open]);
 
   const pick = (next: string) => {
     onChange(next);
@@ -1953,6 +1959,13 @@ function Select({
       setActive(options.length - 1);
       return;
     }
+    if (e.key === "Tab") {
+      const option = options[active];
+      if (option && option.value !== value) onChange(option.value);
+      setOpen(false);
+      trigger.current?.focus();
+      return;
+    }
     if (e.key === "Enter") {
       e.preventDefault();
       const option = options[active];
@@ -1965,7 +1978,7 @@ function Select({
       <button
         type="button"
         ref={trigger}
-        aria-label={label}
+        aria-label={`${label}: ${selected?.label ?? value}`}
         aria-expanded={open}
         aria-haspopup="listbox"
         onClick={() => setOpen((prev) => !prev)}
@@ -2004,6 +2017,7 @@ function Select({
             return (
               <button
                 key={option.value}
+                ref={highlighted ? activeOption : undefined}
                 type="button"
                 id={`${listId}-opt-${index}`}
                 role="option"
