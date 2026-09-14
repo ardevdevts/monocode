@@ -45,13 +45,13 @@ pub enum Permission {
 }
 
 #[tauri::command]
-pub async fn notification_permission() -> Permission {
-    platform::permission().await
+pub async fn notification_permission(app: AppHandle) -> Permission {
+    platform::permission(&app).await
 }
 
 #[tauri::command]
-pub async fn request_notification_permission() -> Permission {
-    platform::request_permission().await
+pub async fn request_notification_permission(app: AppHandle) -> Permission {
+    platform::request_permission(&app).await
 }
 
 /// Resolves only once the platform reports the banner as scheduled: the
@@ -199,15 +199,15 @@ mod platform {
         .flatten()
     }
 
-    pub(super) async fn permission() -> Permission {
+    pub(super) async fn permission(_app: &AppHandle) -> Permission {
         wait(query_permission(), None)
             .await
             .unwrap_or(Permission::Denied)
     }
 
-    pub(super) async fn request_permission() -> Permission {
+    pub(super) async fn request_permission(app: &AppHandle) -> Permission {
         wait(start_request(), None).await;
-        permission().await
+        permission(app).await
     }
 
     /// Hands the request to the center and reports what its completion
@@ -428,11 +428,11 @@ mod platform {
 
     use super::Permission;
 
-    pub(super) async fn permission() -> Permission {
+    pub(super) async fn permission(_app: &AppHandle) -> Permission {
         Permission::Granted
     }
 
-    pub(super) async fn request_permission() -> Permission {
+    pub(super) async fn request_permission(_app: &AppHandle) -> Permission {
         Permission::Granted
     }
 
@@ -515,24 +515,61 @@ mod platform {
     /// same path and are routed by `handle_click`.
     const SHOW_ACTION_PREFIX: &str = "show:";
 
+    /// Wraps the session id in the "Show" button's activation payload.
     fn show_action(session_id: &str) -> String {
         format!("{SHOW_ACTION_PREFIX}{session_id}")
     }
 
+    /// Reads the session id back out of a "Show" button payload.
     fn session_from_action(action: &str) -> Option<&str> {
         action.strip_prefix(SHOW_ACTION_PREFIX)
     }
 
-    pub(super) async fn permission() -> Permission {
-        // WinRT has no runtime prompt; toasts are governed by the system
-        // Settings app (per-app toggle, Focus Assist). Report granted so the
-        // frontend policy allows dispatch; a rejected `show` still falls back
-        // to the in-app cue.
-        Permission::Granted
+    /// Collapses the WinRT setting onto the frontend's decision. Only
+    /// `Enabled` is unblocked; `None` is "could not ask" and defers to the
+    /// dispatch.
+    fn blocked_from_setting(
+        setting: Option<windows::UI::Notifications::NotificationSetting>,
+    ) -> Option<bool> {
+        use windows::UI::Notifications::NotificationSetting;
+        match setting {
+            Some(NotificationSetting::Enabled) => Some(false),
+            // DisabledForApplication / ForUser / ByGroupPolicy / ByManifest.
+            Some(_) => Some(true),
+            None => None,
+        }
     }
 
-    pub(super) async fn request_permission() -> Permission {
-        Permission::Granted
+    /// Whether Windows blocks toasts for this AppUserModelID. `None` means the
+    /// system could not be asked — an unknown ID (`tauri dev` before the
+    /// shortcut exists) or a WinRT failure — and the dispatch itself decides.
+    fn toasts_blocked(app_id: &str) -> Option<bool> {
+        use windows::core::HSTRING;
+        use windows::UI::Notifications::ToastNotificationManager;
+        let notifier =
+            ToastNotificationManager::CreateToastNotifierWithId(&HSTRING::from(app_id)).ok()?;
+        blocked_from_setting(notifier.Setting().ok())
+    }
+
+    /// Asks the toast system, which reflects the per-app toggle, the user-wide
+    /// switch and group policy. There is no prompt to show, so a request just
+    /// re-reads the same state.
+    pub(super) async fn permission(app: &AppHandle) -> Permission {
+        let app_id = app.config().identifier.clone();
+        let blocked = tauri::async_runtime::spawn_blocking(move || toasts_blocked(&app_id))
+            .await
+            .ok()
+            .flatten();
+        if blocked == Some(true) {
+            Permission::Denied
+        } else {
+            Permission::Granted
+        }
+    }
+
+    pub(super) async fn request_permission(app: &AppHandle) -> Permission {
+        // Windows has no authorization dialog; Settings owns the decision.
+        permission(app).await
     }
 
     pub(super) async fn show(
@@ -558,6 +595,8 @@ mod platform {
         .map_err(|err| err.to_string())?
     }
 
+    /// Dispatches on the blocking thread a `Toast` needs, honouring a Windows
+    /// block first so the caller's in-app cue stands in when no banner shows.
     fn show_blocking(
         app: &AppHandle,
         app_id: &str,
@@ -568,6 +607,10 @@ mod platform {
         sound: bool,
     ) -> Result<(), String> {
         use tauri_winrt_notification::Toast;
+
+        if toasts_blocked(app_id) == Some(true) {
+            return Err("notifications are disabled in Windows settings".into());
+        }
 
         // Installed NSIS builds resolve the bundle identifier through the
         // Start Menu shortcut's AppUserModelID. `tauri dev` has no shortcut,
@@ -589,6 +632,8 @@ mod platform {
         }
     }
 
+    /// Builds and shows one toast under `app_id`, wiring the "Show" button to
+    /// the shared click router.
     fn show_with_app_id(
         app: &AppHandle,
         app_id: &str,
@@ -624,6 +669,7 @@ mod platform {
             .map_err(|err| err.to_string())
     }
 
+    /// Opens Settings > System > Notifications, where the per-app toggle lives.
     pub(super) fn open_settings(_app: &AppHandle) -> Result<(), String> {
         let mut cmd = std::process::Command::new("cmd");
         cmd.args(["/C", "start", "", "ms-settings:notifications"]);
@@ -633,7 +679,9 @@ mod platform {
 
     #[cfg(test)]
     mod tests {
-        use super::{session_from_action, show_action};
+        use windows::UI::Notifications::NotificationSetting;
+
+        use super::{blocked_from_setting, session_from_action, show_action};
 
         #[test]
         fn show_action_round_trips_the_session() {
@@ -650,6 +698,27 @@ mod platform {
                 Some("reminder:549ae7ac:1700000000")
             );
         }
+
+        #[test]
+        fn only_an_enabled_setting_is_unblocked() {
+            assert_eq!(
+                blocked_from_setting(Some(NotificationSetting::Enabled)),
+                Some(false)
+            );
+            assert_eq!(
+                blocked_from_setting(Some(NotificationSetting::DisabledForApplication)),
+                Some(true)
+            );
+            assert_eq!(
+                blocked_from_setting(Some(NotificationSetting::DisabledForUser)),
+                Some(true)
+            );
+            assert_eq!(
+                blocked_from_setting(Some(NotificationSetting::DisabledByGroupPolicy)),
+                Some(true)
+            );
+            assert_eq!(blocked_from_setting(None), None);
+        }
     }
 }
 
@@ -659,11 +728,11 @@ mod platform {
 
     use super::Permission;
 
-    pub(super) async fn permission() -> Permission {
+    pub(super) async fn permission(_app: &AppHandle) -> Permission {
         Permission::Unsupported
     }
 
-    pub(super) async fn request_permission() -> Permission {
+    pub(super) async fn request_permission(_app: &AppHandle) -> Permission {
         Permission::Unsupported
     }
 
